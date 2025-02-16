@@ -3949,12 +3949,11 @@ with pkgs;
 
   maskromtool = qt6Packages.callPackage ../tools/graphics/maskromtool { };
 
-  matrix-synapse = callPackage ../servers/matrix-synapse/wrapper.nix { };
-  matrix-synapse-unwrapped = callPackage ../servers/matrix-synapse/default.nix { };
+  matrix-synapse = callPackage ../by-name/ma/matrix-synapse/package.nix { };
+  matrix-synapse-unwrapped = callPackage ../by-name/matrix-synapse-unwrapped/package.nix { };
   matrix-synapse-plugins = recurseIntoAttrs matrix-synapse-unwrapped.plugins;
-  matrix-synapse-tools = recurseIntoAttrs matrix-synapse-unwrapped.tools;
 
-  matrix-appservice-slack = callPackage ../servers/matrix-synapse/matrix-appservice-slack {
+  matrix-appservice-slack = callPackage ../by-name/ma/matrix-appservice-slack {
     matrix-sdk-crypto-nodejs = matrix-sdk-crypto-nodejs-0_1_0-beta_3;
     nodejs = nodejs_18;
   };
@@ -4922,6 +4921,8 @@ with pkgs;
     inherit (darwin.apple_sdk.frameworks) Security;
   };
 
+  rust-synapse-state-compress = callPackage ../by-name/rust-synapse-state-compress/package.nix { };
+
   rustscan = callPackage ../tools/security/rustscan {
     inherit (darwin.apple_sdk.frameworks) Security;
   };
@@ -5095,6 +5096,8 @@ with pkgs;
   suckit = callPackage ../tools/networking/suckit {
     inherit (darwin.apple_sdk.frameworks) Security;
   };
+
+  synadm = callPackage ../by-name/sy/synadm/package.nix { };
 
   system-config-printer = callPackage ../tools/misc/system-config-printer {
     autoreconfHook = buildPackages.autoreconfHook269;
