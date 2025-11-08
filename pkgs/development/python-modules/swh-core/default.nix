@@ -41,7 +41,7 @@
 
 buildPythonPackage rec {
   pname = "swh-core";
-  version = "4.5.2";
+  version = "4.5.3";
   pyproject = true;
 
   src = fetchFromGitLab {
@@ -50,7 +50,7 @@ buildPythonPackage rec {
     owner = "devel";
     repo = "swh-core";
     tag = "v${version}";
-    hash = "sha256-yNWij9GclQCysQe9Bukr4cHlZgSQqLAuX1KwGWzAK+0=";
+    hash = "sha256-xVooAURvGHTBkJUqJygn89a1KTEb6yRiBMiym6DjyAY=";
   };
 
   build-system = [
