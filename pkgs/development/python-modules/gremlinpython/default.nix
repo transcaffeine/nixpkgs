@@ -4,6 +4,7 @@
   fetchFromGitHub,
   aenum,
   aiohttp,
+  async-timeout,
   importlib-metadata,
   isodate,
   nest-asyncio,
@@ -47,6 +48,7 @@ buildPythonPackage rec {
   propagatedBuildInputs = [
     aenum
     aiohttp
+    async-timeout
     isodate
     nest-asyncio
   ];
