@@ -155,14 +155,33 @@ const uniqueBy = (arr, callback) => {
   return [...map.values()]
 }
 
-const prefetchYarnDeps = async (lockContents, verbose) => {
-  const lockData = lockfile.parse(lockContents)
+const downloadPkgs = async (lockData, verbose) => {
+  const entries = lockData.map(data => Object.entries(data.object)).flat(1)
   await performParallel(
-    uniqueBy(Object.entries(lockData.object), ([_, value]) => value.resolved)
+    uniqueBy(entries, ([_, value]) => value.resolved)
     .map(([key, value]) => () => downloadPkg({ key, ...value }, verbose))
   )
-  await fs.promises.writeFile('yarn.lock', lockContents)
   if (verbose) console.log('Done')
+}
+
+const getLockfileData = async (filepath) => await fs.promises.readFile(filepath, 'utf-8')
+
+const getSubprojectLockfiles = lockData => Object.keys(lockData.object)
+    .map(dep => dep.split('@link:'))
+    .filter(dep => dep.length == 2) // Only keep dependencies which contained the @link:
+    .map(([_name, lockfilePath]) => lockfilePath)
+    .filter(path => !path.startsWith('../')) // Only keep sub-paths
+
+const prefetchYarnDeps = async (lockContents, verbose, recursive = false, relativeRoot = '.') => {
+  const lockData = [ lockfile.parse(lockContents) ]
+  if (recursive) {
+    lockData.concat(...getSubprojectLockfiles(lockData[0])
+      .map(file => { console.log(file); return file; })
+      .map(fp => getLockfileData([relativeRoot, fp, 'yarn.lock'].join('/'))))
+    console.info(lockData)
+  }
+  await downloadPkgs(lockData, verbose)
+  await fs.promises.writeFile('yarn.lock', lockContents)
 }
 
 const showUsage = async () => {
@@ -173,18 +192,21 @@ Options:
   -h --help         Show this help
   -v --verbose      Verbose output
   --builder         Only perform the download to current directory, then exit
+  --recursive       Fetch dependencies of linked subprojects in the same repository
 `)
   process.exit(1)
 }
 
 const main = async () => {
   const args = process.argv.slice(2)
-  let next, lockFile, verbose, isBuilder
+  let next, lockFile, verbose, recursive, isBuilder
   while (next = args.shift()) {
     if (next == '--builder') {
       isBuilder = true
     } else if (next == '--verbose' || next == '-v') {
       verbose = true
+    } else if (next == '--recursive' || next == 'r') {
+      recursive = true;
     } else if (next == '--help' || next == '-h') {
       showUsage()
     } else if (!lockFile) {
@@ -199,15 +221,16 @@ const main = async () => {
   } catch {
     showUsage()
   }
+  const relativeRoot = lockFile.split('/').slice(0, -1).join('/')
 
   if (isBuilder) {
-    await prefetchYarnDeps(lockContents, verbose)
+    await prefetchYarnDeps(lockContents, verbose, recursive, relativeRoot)
   } else {
     const { stdout: tmpDir } = await exec('mktemp', [ '-d' ])
 
     try {
       process.chdir(tmpDir.trim())
-      await prefetchYarnDeps(lockContents, verbose)
+      await prefetchYarnDeps(lockContents, verbose, recursive, relativeRoot)
       const { stdout: hash } = await exec('nix-hash', [ '--type', 'sha256', '--base32', tmpDir.trim() ])
       console.log(hash)
     } finally {

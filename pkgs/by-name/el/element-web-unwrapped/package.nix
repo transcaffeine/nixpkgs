@@ -46,12 +46,17 @@ stdenv.mkDerivation (
       nodejs
     ];
 
+    postConfigurePhase = ''
+      yarn install
+    '';
+
     buildPhase = ''
       runHook preBuild
 
       export VERSION=${finalAttrs.version}
-      yarn --offline build:res
-      yarn --offline build:module_system
+      yarn --offline build:genfiles
+      grep -A5 '@element-hq/web-shared-components' yarn.lock
+      grep -A5 '@element-hq/web-shared-components' ${finalAttrs.src + "/yarn.lock"}
       yarn --offline build:bundle
 
       runHook postBuild

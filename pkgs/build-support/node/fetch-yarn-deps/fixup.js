@@ -14,10 +14,15 @@ const fixupYarnLock = async (lockContents, verbose) => {
     .map(([dep, pkg]) => {
       if (pkg.resolved === undefined) {
         console.warn(`no resolved URL for package ${dep}`)
-        var maybeFile = dep.split("@", 2)[1]
-        if (maybeFile.startsWith("file:")) {
+        var maybeFile = dep.split("@file:", 2)
+        if (maybeFile.length === 2) {
           console.log(`Rewriting URL for local file dependency ${dep}`)
-          pkg.resolved = maybeFile
+          pkg.resolved = 'file:' + maybeFile[1]
+        }
+        var maybeProject = dep.split("@link:", 2)
+        if (maybeProject.length === 2) {
+          console.warn(`Rewriting URL for local subproject ${dep}`)
+          pkg.resolved = 'link:' + maybeProject[1]
         }
         return [dep, pkg]
       }
