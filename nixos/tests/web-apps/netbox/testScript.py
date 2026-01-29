@@ -73,7 +73,13 @@ with subtest("Superuser can be created"):
         "netbox-manage createsuperuser --noinput --username netbox --email netbox@example.com"
     )
     # Django doesn't have a "clean" way of inputting the password from the command line
-    machine.succeed("cat '${changePassword}' | netbox-manage shell")
+    machine.succeed("cat '${changePassword}' | netbox-manage shell --interface python")
+
+with subtest("Superusertoken can be created"):
+    full_token = "0123456789abcdef0123456789abcdef01234567"
+    stdout = machine.succeed("cat ${createToken} | netbox-manage shell")
+    token_prefix = stdout.split(r"Bearer ")[-1].lstrip().rstrip()
+    auth_token = f"{token_prefix}{full_token}"
 
 machine.wait_for_unit("network.target")
 
@@ -85,24 +91,6 @@ with subtest("Home screen loads from nginx"):
 with subtest("Staticfiles can be fetched"):
     machine.succeed("curl -sSfL http://localhost/static/netbox.js")
     machine.succeed("curl -sSfL http://localhost/static/docs/")
-
-def login(username: str, password: str):
-    encoded_data = json.dumps({"username": username, "password": password})
-    uri = "/users/tokens/provision/"
-    result = json.loads(
-        machine.succeed(
-            "curl -sSfL "
-            "-X POST "
-            "-H 'Accept: application/json' "
-            "-H 'Content-Type: application/json' "
-            f"'http://localhost/api{uri}' "
-            f"--data '{encoded_data}'"
-        )
-    )
-    return result["key"]
-
-with subtest("Can login"):
-    auth_token = login("netbox", "netbox")
 
 def get(uri: str):
     return json.loads(
@@ -263,12 +251,33 @@ if compare(netbox_version, '4.2.0') < 0:
         assert result["data"]["prefix_list"][0]["prefix"] == test_objects["prefixes"]["v4-with-updated-desc"]["prefix"]
         assert int(result["data"]["prefix_list"][0]["site"]["id"]) == int(test_objects["prefixes"]["v4-with-updated-desc"]["scope"]["id"])
 
-with subtest("Can login with LDAP"):
-    machine.wait_for_unit("openldap.service")
-    login("alice", "${testPassword}")
+def login(username: str, password: str):
+    encoded_data = json.dumps({"username": username, "password": password})
+    uri = "/users/tokens/provision/"
+    result = json.loads(
+        machine.succeed(
+            "curl -sSfL "
+            "-X POST "
+            "-H 'Accept: application/json' "
+            "-H 'Content-Type: application/json' "
+            f"'http://localhost/api{uri}' "
+            f"--data '{encoded_data}'"
+        )
+    )
+    return result["key"]
 
-with subtest("Can associate LDAP groups"):
-    result = get("/users/users/?username=${testUser}")
+# With 4.5.2 and higher, obtaining a session cookie or token without supplying
+# proper CSRF tokens on the frontend /login/ endpoint is no longer possible
+if compare(netbox_version, '4.5.2') < 0:
+    with subtest("Can login"):
+         user_token = login("netbox", "netbox")
 
-    assert result["count"] == 1
-    assert any(group["name"] == "${testGroup}" for group in result["results"][0]["groups"])
+    with subtest("Can login with LDAP"):
+        machine.wait_for_unit("openldap.service")
+        login("alice", "${testPassword}")
+
+    with subtest("Can associate LDAP groups"):
+        result = get("/users/users/?username=${testUser}")
+
+        assert result["count"] == 1
+        assert any(group["name"] == "${testGroup}" for group in result["results"][0]["groups"])
